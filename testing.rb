@@ -35,9 +35,14 @@ prompt = TTY::Prompt.new()
 
 # puts email
 
-password = BCrypt::Password.create("password123")
-hashed_password = BCrypt::Password.new(password)
+# password = BCrypt::Password.create("password123")
+# hashed_password = BCrypt::Password.new(password)
 
-puts password
-puts hashed_password
-puts hashed_password == "password123"
+# puts password
+# puts hashed_password
+# puts hashed_password == "password123"
+
+my_string = "Password: ********"
+
+binding.pry
+

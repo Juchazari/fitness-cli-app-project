@@ -7,34 +7,63 @@ def prompt
 end
 
 # Individual exercise page, shows description, sets, reps
-def exercise_page(user, exercise)
+def app_exercise(user, exercise)
+
+    page_title = Artii::Base.new()
+
     exercise = Exercise.find_by(name: exercise)
-    puts "#{exercise.name}".upcase
-    puts "Description: #{exercise.description}"
-    puts "Sets: #{exercise.sets}"
-    puts "Reps: #{exercise.reps}"
-    #prompt = TTY::Prompt.new()
-    add_or_back = prompt.select("Add this exercise or go back:", [
-        "Add Exercise",
-        "Go Back"
-    ])
-    if add_or_back == "Go Back"
-        system "clear"
-        exercises_page(user, exercise.category.name)
-    elsif add_or_back == "Add Exercise"
+    puts page_title.asciify("#{exercise.name}").colorize(:color => :blue, :background => :light_black)
+    puts "Description: #{exercise.description}".colorize(:yellow)
+    puts "Sets: #{exercise.sets}".colorize(:yellow)
+    puts "Reps: #{exercise.reps}".colorize(:yellow)
+
+    existing_exercise = UserFavExercise.find_by(exercise_id: exercise.id)
+
+    selection = nil
+    
+    if existing_exercise 
+        selection = prompt.select("Already Added! Would like to remove it?", [
+            "Remove Exercise",
+            "Go Back",
+            "Go Home"
+        ])
+    else
+        selection = prompt.select("Add this exercise or go back:", [
+            "Add Exercise",
+            "Go Back",
+            "Go Home"
+        ])
+    end
+
+    case selection
+    when "Add Exercise"
         puts "Added!"
         UserFavExercise.create({user_id: user.id, exercise_id: exercise.id})
+        system "clear"
+        app_exercises(user, exercise.category.name)
+    when "Remove Exercise"
+        remove_exercise = UserFavExercise.find_by(exercise_id: exercise.id)
+        remove_exercise.destroy
+        system "clear"
+        app_exercises(user, exercise.category.name)
+    when "Go Back"
+        system "clear"
+        app_exercises(user, exercise.category.name)
+    when "Go Home"
+        system "clear"
+        app_home(user)
     end
+
 end
 
 # Shows the list of all exercises within a category
-def exercises_page(user, category)
-    #prompt = TTY::Prompt.new()
+def app_exercises(user, category)
 
     page_title = Artii::Base.new()
-    puts page_title.asciify("#{category}").colorize(:blue)
+    puts page_title.asciify("#{category}").colorize(:color => :blue, :background => :light_black)
 
-    exercise_list_for_category = ["Go Back"]
+    exercise_list_for_category = ["Go Back", "Go Home"]
+
     Exercise.all.each do | exercise |
         if exercise.category.name == category
             exercise_list_for_category.unshift(exercise.name)
@@ -45,18 +74,21 @@ def exercises_page(user, category)
 
     if picked_exercise == "Go Back"
         system "clear"
-        categories_page(user)
+        app_categories(user)
+    elsif picked_exercise == "Go Home"
+        system "clear"
+        app_home(user)
     end
 
     system "clear"
-    exercise_page(user, picked_exercise)
+    app_exercise(user, picked_exercise)
 end
 
 # Shows the list of al categories
-def categories_page(user)
+def app_categories(user)
 
     page_title = Artii::Base.new()
-    puts page_title.asciify("Workout Categories").colorize(:blue)
+    puts page_title.asciify("Workout Categories").colorize(:color => :blue, :background => :light_black)
 
     workout_category_array = ["Go Back"]
     Category.all.each do | category |
@@ -71,69 +103,188 @@ def categories_page(user)
     end
 
     system "clear"
-    exercises_page(user, workout_categories)
+    app_exercises(user, workout_categories)
 
 end
 
 def descript_favs(user, exercise)
 
     page_title = Artii::Base.new()
-    puts page_title.asciify("#{exercise}").colorize(:blue)
+    puts page_title.asciify("#{exercise}").colorize(:color => :blue, :background => :light_black)
+    puts ""
 
-    some_exer = Exercise.find_by(name: exercise)
-    puts "Description: #{some_exer.description}"
-    puts "Sets: #{some_exer.sets}"
-    puts "Reps: #{some_exer.reps}"
+    current_exercise = Exercise.find_by(name: exercise)
 
-    #prompt = TTY::Prompt.new()
-    prompt_response = prompt.select("Would you like to remove it?", [
-        "Remove Exercise",
-        "Go Back"
-    ])
+    puts "Description: #{current_exercise.description}".colorize(:yellow)
+    puts "Sets: #{current_exercise.sets}".colorize(:yellow)
+    puts "Reps: #{current_exercise.reps}".colorize(:yellow)
 
-    if prompt_response == "Remove Exercise"
-        remove_fav = UserFavExercise.find_by({user_id: user.id, exercise_id: some_exer.id})
+    exercise_completed = UserFavExercise.find_by(user_id: user.id, exercise_id: current_exercise.id, completed: true)
+
+    selection = nil
+
+    if exercise_completed
+        selection = prompt.select("Would you like to remove it?", [
+            "Remove Exercise",
+            "Mark As Not Completed?",
+            "Go Back"
+        ])
+    else
+        selection = prompt.select("Would you like to remove it?", [
+            "Remove Exercise",
+            "Mark As Completed?",
+            "Go Back"
+        ])
+    end
+
+    case selection
+    when "Remove Exercise"
+        remove_fav = UserFavExercise.find_by({user_id: user.id, exercise_id: current_exercise.id})
         UserFavExercise.destroy(remove_fav.id)
         system "clear"
-        user_page(user)
-    elsif prompt_response == "Go Back"
+        user_page_workouts(user)
+    when "Mark As Not Completed?"
+        exercise_completed.completed = false
+        exercise_completed.save
         system "clear"
-        user_page(user)
+        user_page_workouts(user)
+    when "Mark As Completed?"
+        user_update_completed = UserFavExercise.find_by({user_id: user.id, exercise_id: current_exercise.id})
+        user_update_completed.completed = true
+        user_update_completed.save
+        system "clear"
+        user_page_workouts(user)
+    when "Go Back"
+        system "clear"
+        user_page_workouts(user)
     end
+
 end
 
-
-#Show fav. wokrout
-def user_page(user)
-    user_page_title = Artii::Base.new()
-    puts user_page_title.asciify("#{user.name}").colorize(:blue)
+def user_page_workouts(user)
 
     user_exercises_added = UserFavExercise.where(user_id: user.id)
-    exercise_names = ["Go Back"]
 
+    selection = nil
+
+    exercise_names = ["Go Back"]
+    
     if user_exercises_added.length > 0
+
         user_exercises_added.each do | fav_exercise |
             exercise_names.unshift(fav_exercise.exercise.name)
         end
+
+        selection = prompt.select("Here are your exercises!", exercise_names)
+
+    else
+        selection = prompt.select("You have no exercises added!", exercise_names)
     end
 
-    if exercise_names.length > 1
-        prompt_select = prompt.select("Here are your exercises!", exercise_names)
-
-        if prompt_select == "Go Back"
-            system "clear"
-            app_home(user)
-        end
-
+    case selection
+    when "Go Back"
         system "clear"
-        descript_favs(user, prompt_select)
+        user_page(user)
     else
-        prompt_select = prompt.select("You have no exercises added.", exercise_names)
+        system "clear"
+        descript_favs(user, selection)
+    end
 
-        if prompt_select == "Go Back"
-            system "clear"
-            app_home(user)
+end
+
+def user_profile_edit(user, info)
+    update_column = info.split.shift
+    case update_column
+    when "Name:"
+        name = prompt.ask("Enter your new name:") do |q|
+            q.required true
+            q.validate /^[a-zA-Z\-\`]++(?: [a-zA-Z\-\`]++)?$/
+            q.messages[:valid?] = 'Please enter a valid name'
+            q.modify :capitalize
         end
+        user.name = name
+        user.save
+        system "clear"
+        user_page_profile(user)
+    when "Email:"
+        email = create_account_email
+        user.email = email
+        user.save
+        system "clear"
+        user_page_profile(user)
+    when "Weight:"
+        weight = prompt.ask("Please enter your weight:", required: true)
+        user.weight = weight
+        user.save
+        system "clear"
+        user_page_profile(user)
+    when "Height:"
+        height = prompt.ask("Please enter your height:", required: true)
+        user.height = height
+        user.save
+    when "Age:"
+        age = prompt.ask("Please enter your age:", required: true)
+        user.age = age
+        user.save
+        system "clear"
+        user_page_profile(user)
+    when "Gender:"
+        gender = prompt.ask("Please enter your gender:", required: true)
+        user.gender = gender
+        user.save
+        system "clear"
+        user_page_profile(user)
+    when "Password:"
+        password = create_account_password
+        bcrypt_password = BCrypt::Password.create(password)
+        user.password = bcrypt_password
+        user.save
+        system "clear"
+        user_page_profile(user)
+    end
+
+end
+
+def user_page_profile(user)
+    selection = prompt.select("Edit Profile:", [
+        "Name: #{user.name}",
+        "Email: #{user.email}",
+        "Weight: #{user.weight}",
+        "Height: #{user.height}",
+        "Age: #{user.age}",
+        "Gender: #{user.gender}",
+        "Password: **********",
+        "Go Back"
+    ])
+    if selection == "Go Back"
+        system "clear"
+        user_page(user)
+    else
+        user_profile_edit(user, selection)
+    end
+end
+
+#Show fav. wokrout
+def user_page(user)
+
+    user_page_title = Artii::Base.new()
+    puts user_page_title.asciify("#{user.name}").colorize(:color => :blue, :background => :light_black)
+    puts ""
+    completed_exercises = UserFavExercise.where(user_id: user.id, completed: true)
+
+    puts "Completed Workouts: #{completed_exercises.length}".colorize(:cyan).underline
+    selection = prompt.select("Welcome to your page!", ["My Profile", "My Workouts", "Go Back"])
+
+    case selection
+    when "My Profile"
+        system "clear"
+        user_page_profile(user)
+    when "My Workouts"
+        system "clear"
+        user_page_workouts(user)
+    when "Go Back"
+        system "clear"
+        app_home(user)
     end
 
 end
@@ -141,27 +292,27 @@ end
 # Main page for user -- browse workouts, go to my page, logout
 def app_home(user)
     welcome_title = Artii::Base.new()
-    puts welcome_title.asciify("JJ - BUFFS - Fitness").colorize(:blue)
-
-    puts "Signed In: #{user.name}"
+    puts welcome_title.asciify("JJ - BUFFS - Fitness").colorize(:color => :blue, :background => :light_black, :mode => :blink)
+    puts ""
+    puts "Signed In: #{user.name}".colorize(:color => :cyan).underline
     selection = prompt.select("Please select an option:", [
         "Browse Workouts",
         "My Page",
-        "Exit",
-        "Logout"
+        "Exit".colorize(:red),
+        "Logout".colorize(:light_red)
     ])
 
     case selection
     when "Browse Workouts"
         system "clear"
-        categories_page(user)
+        app_categories(user)
     when "My Page"
         system "clear"
         user_page(user)
-    when "Exit"
+    when "Exit".colorize(:red)
         system "clear"
         exit
-    when "Logout"
+    when "Logout".colorize(:light_red)
         system "clear"
         puts "Goodbye!"
         user.is_logged_in = false
@@ -195,7 +346,7 @@ def account_setup(user, message)
 end
 
 def create_account_email
-    email = prompt.ask("Please enter your email address:") do |q|
+    email = prompt.ask("Please enter a email address:") do |q|
         q.required true
         q.validate(/\A[\w+\-.]+@[a-z\d\-]+(\.[a-z\d\-]+)*\.[a-z]+\z/i)
         q.messages[:valid?] = 'Invalid email address'
@@ -203,17 +354,15 @@ def create_account_email
     existing_user = User.find_by(email: email)
     if existing_user
         system "clear"
-        message =  "A user with this email address already exists! Would you like to sign in?"
-        selection = prompt.select(message, ["Yes", "Try Again"])
-        if selection == "Yes"
-            system "clear"
-            sign_in
-        elsif selection == "Try Again"
+        message =  "A user with this email address already exists!"
+        selection = prompt.select(message, ["Try Again"])
+        if selection == "Try Again"
             system "clear"
             create_account_email
         end
+    else
+        return email
     end
-    email
 end
 
 def create_account_password
@@ -261,7 +410,7 @@ end
 # Sign In Process
 def sign_in
 
-    puts "Sing In Process"
+    puts "Sing In Process".colorize(:green)
     email = prompt.ask("Please enter your email address:", required: true)
     existing_user = User.find_by(email: email)
 
@@ -316,10 +465,10 @@ def run
 
     # If no user is logged in, will begin as the first startup of the app
     app_title = Artii::Base.new()
-    puts app_title.asciify("JJ - BUFFS - Fitness").colorize(:blue)
-
+    puts app_title.asciify("JJ - BUFFS - Fitness").colorize(:color => :blue, :background => :light_black)
+    puts ""
     message = "Welcome! Select one of the following!"
-    response = prompt.select(message, ["Sign Up", "Sign In", "Exit"])
+    response = prompt.select(message, ["Sign Up", "Sign In", "Exit".colorize(:red)])
 
     case response
     when "Sign Up"
@@ -328,7 +477,7 @@ def run
     when "Sign In"
         system "clear"
         sign_in
-    when "Exit"
+    when "Exit".colorize(:red)
         system "clear"
         exit
     end
