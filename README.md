@@ -1,1 +1,1 @@
-# JJ BUFS Fitness App
+# JJ-BUFFS-Fitness
